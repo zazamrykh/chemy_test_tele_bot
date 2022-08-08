@@ -1,4 +1,5 @@
 public class DataBaseConfig {
+    // DB structure https://dbdesign.online/model/Ubgce3iCYJfC
     protected String dbHost = "localhost";
     protected String dbPort = "3307";
     protected String dbPassword = "hotdog88";

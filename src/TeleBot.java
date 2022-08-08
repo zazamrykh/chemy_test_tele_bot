@@ -21,7 +21,12 @@ import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 import lombok.SneakyThrows;
 
 public class TeleBot extends TelegramLongPollingBot {
+    // HashMap users keep data about users conditions in bot conversation
+    private final HashMap<Long, User> users = new HashMap<>();
+
+    // HashMap userAnswers keep data about answer user at question
     private final HashMap<Integer, UserAnswer> userAnswers = new HashMap<>();
+
     private Integer userAnswerId = -1;
 
     @Override
@@ -53,48 +58,124 @@ public class TeleBot extends TelegramLongPollingBot {
 
     @SneakyThrows
     private void handleMessage(Message message) {
+        if (!message.hasText()) {
+            return;
+        }
+        Long chatId = message.getChatId();
+        if (!users.containsKey(chatId)) {
+            users.put(chatId, new User());
+        }
 
-        if (!message.hasText()) return;
-        String chatId = message.getChatId().toString();
-
-        if (!message.hasEntities()) return;
+        if (!message.hasEntities()) {
+            handleTextMessage(message);
+            return;
+        }
 
         Optional<MessageEntity> commandEntity =
                 message.getEntities().stream().filter(e -> "bot_command".equals(e.getType())).findFirst();
 
-        if (commandEntity.isPresent()) {
-            String command = message.getText().substring(commandEntity.get().getOffset(),
-                    commandEntity.get().getLength());
+        if (commandEntity.isEmpty()) {
+            return;
+        }
 
-            switch (command) {
-                case "/add_question" -> {
-                    // Don't do anything yet
-                    sendMessage("Напишите свой вопрос.", chatId);
+        String command = message.getText().substring(commandEntity.get().getOffset(),
+                commandEntity.get().getLength());
+
+        User currentUser = users.get(chatId);
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        switch (command) {
+            case "/add_question" -> {
+                currentUser.setUserCondition(UserCondition.ENTERING_MODULE);
+                sendMessage(BotMessages.AddQuestionMessage, chatId);
+            }
+            case "/get_random_question" -> {
+                userAnswerId++;
+                int questionId = dbHandler.getRandomQuestionId();
+                userAnswers.put(userAnswerId, new UserAnswer(questionId));
+
+                List<List<InlineKeyboardButton>> buttons;
+                buttons = getButtons(userAnswerId, userAnswers.get(userAnswerId).getChosenAnswers());
+
+                String questionText = dbHandler.getQuestion(questionId);
+                execute(SendMessage.builder()
+                        .text(questionText)
+                        .chatId(chatId)
+                        .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
+                        .build());
+            }
+            case "/get_all_questions" -> {
+                List<String> allQuestions = dbHandler.getAllQuestions();
+                for (int i = 0; i < allQuestions.size(); i++) {
+                    sendMessage(i + " " + allQuestions.get(i), chatId);
                 }
-                case "/get_random_question" -> {
-                    userAnswerId++;
-
-                    DataBaseHandler dbHandler = new DataBaseHandler();
-                    int questionId = dbHandler.getRandomQuestionId();
-                    userAnswers.put(userAnswerId, new UserAnswer(questionId));
-
-                    List<List<InlineKeyboardButton>> buttons;
-                    buttons = getButtons(userAnswerId, userAnswers.get(userAnswerId).getChosenAnswers());
-
-                    String questionText = dbHandler.getQuestion(questionId);
-                    execute(SendMessage.builder()
-                            .text(questionText)
-                            .chatId(chatId)
-                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
-                            .build());
+            }
+            case "/get_modules" -> {
+                HashMap<Integer, String> modules = dbHandler.getModules();
+                for (Map.Entry<Integer, String> entry : modules.entrySet()) {
+                    sendMessage(entry.getKey().toString() + ". " + entry.getValue(), chatId);
                 }
-                case "/get_all_questions" -> {
-                    DataBaseHandler dbHandler = new DataBaseHandler();
-                    List<String> allQuestions = dbHandler.getAllQuestions();
-                    for (int i = 0; i < allQuestions.size(); i++) {
-                        sendMessage(i + " " + allQuestions.get(i), chatId);
-                    }
+            }
+            case "/get_topics" -> {
+                HashMap<Integer, String> topics = dbHandler.getTopics();
+                for (Map.Entry<Integer, String> entry : topics.entrySet()) {
+                    sendMessage(entry.getKey().toString() + ". " + entry.getValue(), chatId);
                 }
+            }
+            case "/add_module" -> {
+                currentUser.setUserCondition(UserCondition.ADDING_MODULE);
+                sendMessage(BotMessages.AddModuleMessage, chatId);
+            }
+            case "/add_topic" -> {
+                currentUser.setUserCondition(UserCondition.ADDING_TOPIC);
+                sendMessage(BotMessages.AddTopicMessage, chatId);
+            }
+            case "/format" -> sendMessage(BotMessages.FormatMessage, chatId);
+        }
+    }
+
+    @SneakyThrows
+    private void handleTextMessage(Message message) {
+        Long chatId = message.getChatId();
+        String messageText = message.getText();
+        User currentUser = users.get(chatId);
+        UserCondition currentCondition = currentUser.getUserCondition();
+        System.out.println(currentCondition);
+        switch (currentCondition) {
+            case ENTERING_MODULE -> {
+                currentUser.setModuleIds(messageText);
+                sendMessage(BotMessages.EnteringModuleMessage, chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_TOPIC);
+            }
+            case ENTERING_TOPIC -> {
+                currentUser.setTopicIds(messageText);
+                sendMessage(BotMessages.EnteringTopicMessage, chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_QUESTION);
+            }
+            case ENTERING_QUESTION -> {
+                currentUser.setQuestionText(messageText);
+                sendMessage(BotMessages.EnteringQuestionMessage, chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_ANSWERS);
+            }
+            case ENTERING_ANSWERS -> {
+                currentUser.setAnswers(messageText);
+                currentUser.addQuestionToDB();
+                sendMessage(BotMessages.EnteringAnswersMessage, chatId);
+                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
+            }
+            case ADDING_MODULE -> {
+                DataBaseHandler dbHandler = new DataBaseHandler();
+                dbHandler.addModule(messageText);
+                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
+                sendMessage(BotMessages.AddingModuleMessage, chatId);
+            }
+            case ADDING_TOPIC -> {
+                DataBaseHandler dbHandler = new DataBaseHandler();
+                String[] param = messageText.split(";");
+                String topicName = param[0];
+                int moduleId = Integer.parseInt(param[1]);
+                dbHandler.addTopic(topicName, moduleId);
+                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
+                sendMessage(BotMessages.AddingTopicMessage, chatId);
             }
         }
     }
@@ -106,7 +187,7 @@ public class TeleBot extends TelegramLongPollingBot {
         String action = param[0];
         Integer userAnswerId = Integer.parseInt(param[1]);
         UserAnswer userAnswer = userAnswers.get(userAnswerId);
-        String chatId = String.valueOf(message.getChatId());
+        Long chatId = message.getChatId();
         if (userAnswer.isAnswered()) {
             return;
         }
@@ -115,7 +196,6 @@ public class TeleBot extends TelegramLongPollingBot {
                 Integer answerId = Integer.valueOf(param[2]);
                 if (userAnswer.isAnswered(answerId)) {
                     userAnswer.changeUserAnswer(answerId);
-
                     execute(EditMessageReplyMarkup.builder()
                             .chatId(chatId)
                             .messageId(message.getMessageId())
@@ -141,7 +221,7 @@ public class TeleBot extends TelegramLongPollingBot {
 
     }
 
-    private void sendMessage(String messageText, String chatId) throws TelegramApiException {
+    private void sendMessage(String messageText, Long chatId) throws TelegramApiException {
         execute(SendMessage.builder()
                 .text(messageText)
                 .chatId(chatId)

@@ -1,15 +1,21 @@
 import java.util.HashMap;
+import java.util.List;
 
 import org.glassfish.grizzly.utils.Pair;
 
 
 public class User {
     private UserCondition userCondition;
+    // moduleIds - id modules where user wants to add question
     private String[] moduleIds;
+    // topicIds - id topics relate question
     private String[] topicIds;
     private String questionText;
-    private String testNumber;
-    private HashMap<String, Pair<Boolean, Boolean>> answers;
+    private HashMap<String, Pair<Boolean, Boolean>> answersToQuestion;
+    private List<Question> questions;
+    private Pair<Integer, String> topic;
+    private int points = 0;
+    private int idCurrentQuestion = 0;
 
     User() {
         userCondition = UserCondition.DOING_NOTHING;
@@ -35,17 +41,12 @@ public class User {
         this.questionText = questionText;
     }
 
-    public void setTestNumber(String testNumber) {
-        this.testNumber = testNumber;
-    }
-
     public void setTopicIds(String topicIds) {
         this.topicIds = topicIds.split(";");
     }
 
-    public void setAnswers(String answers) {
-        System.out.println("setting answers");
-        String[] param = answers.split(";");
+    public void setAnswersToQuestion(String answersToQuestion) {
+        String[] param = answersToQuestion.split(";");
         HashMap<String, Pair<Boolean, Boolean>> answerIsCorrectIsHandwritten = new HashMap<>();
         for (int i = 0; i < param.length - 1; i += 2) {
             String isCorrectString = param[i + 1];
@@ -53,8 +54,7 @@ public class User {
             isCorrect = isCorrectString.equals("Верный");
             answerIsCorrectIsHandwritten.put(param[i], new Pair<>(isCorrect, false));
         }
-        this.answers = answerIsCorrectIsHandwritten;
-        System.out.println("answers was setted");
+        this.answersToQuestion = answerIsCorrectIsHandwritten;
     }
 
     public String getWarning() {
@@ -63,6 +63,46 @@ public class User {
 
     public void addQuestionToDB() {
         DataBaseHandler dbHandler = new DataBaseHandler();
-        dbHandler.addQuestionWithAnswers(moduleIds, topicIds, questionText, "-1", answers);
+        dbHandler.addQuestionWithAnswers(moduleIds, topicIds, questionText, "-1", answersToQuestion);
+    }
+
+    public void setQuestions(List<Question> questions) {
+        this.questions = questions;
+    }
+
+    public Question getCurrentQuestion() {
+        return questions.get(idCurrentQuestion);
+    }
+
+    public void incrementIdCurrentQuestion() {
+        idCurrentQuestion++;
+    }
+
+    public void resetIdCurrentQuestion() {
+        idCurrentQuestion = 1;
+    }
+
+    public void incrementPoints() {
+        points++;
+    }
+
+    public void resetPoints() {
+        points = 0;
+    }
+
+    public boolean isLastQuestion() {
+        return idCurrentQuestion == questions.size() - 1;
+    }
+
+    public void setTopic(Pair<Integer, String> topic) {
+        this.topic = topic;
+    }
+
+    public Pair<Integer, String> getTopic() {
+        return topic;
+    }
+
+    public int getPoints() {
+        return points;
     }
 }

@@ -24,9 +24,11 @@ public class BotMessages {
                         Если вопрос относится к одной теме, введите просто число
                         Чтобы посмотреть нумерацию тем введите команду '/get_topics'.""";
     public static final String EnteringTopicMessage = "Введите вопрос.";
-    public static final String EnteringQuestionMessage = "Введите ответы на вопрос. Посмотреть формат ввода '/format'";
+    public static final String EnteringQuestionMessage = "Введите ответы на вопрос. Посмотреть формат ввода '/format'.";
     public static final String EnteringAnswersMessage ="Вопрос добавлен в базу данных.";
     public static final String AddingModuleMessage = "Модуль добавлен в базу данных.";
-    public static final String AddingTopicMessage = "Тема добавлена в базу данных";
+    public static final String AddingTopicMessage = "Тема добавлена в базу данных.";
 
+    public static final String PressingModuleForGettingTest = "Выберите модуль, из которого вы хотите взять тест.";
+    public static final String PressingTopicForGettingTest = "Выберите тему, из которой вы хотите взять тест.";
 }

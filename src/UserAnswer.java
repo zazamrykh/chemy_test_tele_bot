@@ -41,14 +41,9 @@ public class UserAnswer {
         }
     }
 
-    public HashMap<Integer, Pair<String, Boolean>> getUserAnswers() {
-        return userAnswers;
-    }
-
     public int getPoints() {
         int points = 0;
         Integer key;
-        boolean value;
         for (Map.Entry<Integer, Pair<String, Boolean>> entry : userAnswers.entrySet()) {
             key = entry.getKey();
             if (answers.get(key).getSecond() && userAnswers.get(key).getSecond()) {
@@ -56,6 +51,18 @@ public class UserAnswer {
             }
         }
         return points;
+    }
+
+    public boolean isFullyCorrect() {
+        int points = 0;
+        Integer key;
+        for (Map.Entry<Integer, Pair<String, Boolean>> entry : userAnswers.entrySet()) {
+            key = entry.getKey();
+            if (answers.get(key).getSecond() && userAnswers.get(key).getSecond()) {
+                points++;
+            }
+        }
+        return points == numberTrueAnswer;
     }
 
     public void setAnswered(boolean isAnswered) {
@@ -66,7 +73,7 @@ public class UserAnswer {
         return isAnswered;
     }
 
-    public int getNumberTrueAnswer() {
+    public int getNumberTrueAnswers() {
         return numberTrueAnswer;
     }
 
@@ -90,4 +97,5 @@ public class UserAnswer {
     public HashMap<Integer, Pair<String, Boolean>> getAnswers() {
         return answers;
     }
+
 }

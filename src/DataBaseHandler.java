@@ -71,6 +71,192 @@ public class DataBaseHandler extends DataBaseConfig {
         return null;
     }
 
+    public List<String> getAllQuestions() {
+        String selectAllQuestionQuery = "SELECT " + DBConsts.QUESTION_ID + ", " + DBConsts.QUESTION_TEXT +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE;
+
+        Statement statement;
+        List<String> allQuestions = new ArrayList<>();
+        List<String> questionId = new ArrayList<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectAllQuestionQuery);
+            while (resultSet.next()) {
+                questionId.add(resultSet.getString(1));
+                allQuestions.add(resultSet.getString(2));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return allQuestions;
+    }
+
+    public HashMap<Integer, Pair<String, Boolean>> getAnswersAtQuestion(int questionId) {
+        String selectAnswersAtQuestionQuery = "SELECT " + DBConsts.ANSWER_ID + ", "
+                + DBConsts.ANSWER_TEXT + ", "
+                + DBConsts.IS_CORRECT +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.ANSWER_TABLE +
+                " WHERE " + DBConsts.QUESTION_ID + " = " + questionId;
+
+        HashMap<Integer, Pair<String, Boolean>> answers = new HashMap<>();
+
+        Statement statement = null;
+        try {
+            statement = getDbConnection().createStatement();
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        ResultSet resultSet;
+        try {
+            assert statement != null;
+            resultSet = statement.executeQuery(selectAnswersAtQuestionQuery);
+            while (resultSet.next()) {
+                if (Objects.equals(resultSet.getString(3), "true")) {
+                    answers.put(Integer.valueOf(resultSet.getString(1)),
+                            new Pair<>(resultSet.getString(2), true));
+                } else {
+                    answers.put(Integer.valueOf(resultSet.getString(1)),
+                            new Pair<>(resultSet.getString(2), false));
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return answers;
+    }
+
+    public List<Pair<Integer, String>> getTopics() {
+        String selectTopicsQuery = "SELECT " + DBConsts.TOPIC_ID + ", " + DBConsts.TOPIC_NAME +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TOPIC_TABLE +
+                " ORDER BY " + DBConsts.MODULE_ID;
+
+        Statement statement;
+        List<Pair<Integer, String>> topics = new ArrayList<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectTopicsQuery);
+            while (resultSet.next()) {
+                topics.add(new Pair<>(Integer.valueOf(resultSet.getString(1)),
+                        resultSet.getString(2)));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return topics;
+    }
+
+    public HashMap<Integer, String> getTopics(Integer moduleId) {
+        String selectTopicsQuery = "SELECT " + DBConsts.TOPIC_ID + ", " + DBConsts.TOPIC_NAME +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TOPIC_TABLE +
+                " WHERE " + DBConsts.MODULE_ID + " = " + moduleId;
+
+        Statement statement;
+        HashMap<Integer, String> topics = new HashMap<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectTopicsQuery);
+            while (resultSet.next()) {
+                topics.put(Integer.valueOf(resultSet.getString(1)), resultSet.getString(2));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return topics;
+    }
+
+    public HashMap<Integer, String> getModules() {
+        String selectModulesQuery = "SELECT " + DBConsts.MODULE_ID + ", " + DBConsts.MODULE_NAME +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.MODULE_TABLE;
+        Statement statement;
+        HashMap<Integer, String> modules = new HashMap<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectModulesQuery);
+            while (resultSet.next()) {
+                modules.put(Integer.valueOf(resultSet.getString(1)), resultSet.getString(2));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return modules;
+    }
+
+    public Pair<Integer, String> getModule(Integer topicId) {
+        // Returns Pair<Integer, String> where key is moduleId, value is module name using topicId
+        String selectModuleIdAndNameUsingTopicId = "SELECT " + DBConsts.MODULE_ID + ", " + DBConsts.MODULE_NAME +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.MODULE_TABLE +
+                " WHERE " + DBConsts.MODULE_ID + " = " +
+                " ( SELECT " + DBConsts.MODULE_ID + " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TOPIC_TABLE +
+                " WHERE " + DBConsts.TOPIC_ID + " = " + topicId.toString() + ")";
+
+
+        Statement statement;
+        Pair<Integer, String> module = new Pair<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectModuleIdAndNameUsingTopicId);
+            while (resultSet.next()) {
+                module.setFirst(Integer.valueOf(resultSet.getString(1)));
+                module.setSecond(resultSet.getString(2));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return module;
+    }
+
+    public List<Question> getQuestions(int topicId) {
+        String selectQuestionIdAndText = "SELECT DISTINCT " + DBConsts.QUESTION_ID + ", " + DBConsts.QUESTION_TEXT +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE +
+                " INNER JOIN " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TOPIC_MODULE_TABLE +
+                " USING (" + DBConsts.QUESTION_ID + ") WHERE " + DBConsts.TOPIC_ID + " = " + topicId;
+
+        Statement statement;
+        HashMap<Integer, String> questionIdAndText = new HashMap<>();
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectQuestionIdAndText);
+            while (resultSet.next()) {
+                questionIdAndText.put(Integer.valueOf(resultSet.getString(1)), resultSet.getString(2));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        HashMap<Integer, Pair<String, Boolean>> answers;
+        List<Question> questions = new ArrayList<>();
+        for (Map.Entry<Integer, String> entry : questionIdAndText.entrySet()) {
+            answers = getAnswersAtQuestion(entry.getKey());
+            questions.add(new Question(entry.getKey(), topicId, entry.getValue(), answers));
+        }
+        return questions;
+    }
+
+    public String getTopicName(int topicId) {
+        String selectTopicsQuery = "SELECT " + DBConsts.TOPIC_NAME +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TOPIC_TABLE +
+                " WHERE " + DBConsts.TOPIC_ID + " = " + topicId;
+
+        Statement statement;
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectTopicsQuery);
+            if (resultSet.next()) {
+                return resultSet.getString(1);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public void addQuestionWithAnswers(String[] moduleIds, String[] topicIds, String questionText, String testNumber,
                                        HashMap<String, Pair<Boolean, Boolean>> textIsCorrectIsHandwrittenAnswer) {
         String questionId = String.valueOf(addQuestion(moduleIds, topicIds, questionText, testNumber));
@@ -152,98 +338,6 @@ public class DataBaseHandler extends DataBaseConfig {
                 e.printStackTrace();
             }
         }
-    }
-
-    public List<String> getAllQuestions() {
-        String selectAllQuestionQuery = "SELECT " + DBConsts.QUESTION_ID + ", " + DBConsts.QUESTION_TEXT +
-                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE;
-
-        Statement statement;
-        List<String> allQuestions = new ArrayList<>();
-        List<String> questionId = new ArrayList<>();
-        try {
-            statement = getDbConnection().createStatement();
-            ResultSet resultSet;
-            resultSet = statement.executeQuery(selectAllQuestionQuery);
-            while (resultSet.next()) {
-                questionId.add(resultSet.getString(1));
-                allQuestions.add(resultSet.getString(2));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return allQuestions;
-    }
-
-    public HashMap<Integer, Pair<String, Boolean>> getAnswersAtQuestion(int questionId) {
-        String selectAnswersAtQuestionQuery = "SELECT " + DBConsts.ANSWER_ID + ", "
-                + DBConsts.ANSWER_TEXT + ", "
-                + DBConsts.IS_CORRECT +
-                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.ANSWER_TABLE +
-                " WHERE " + DBConsts.QUESTION_ID + " = " + questionId;
-
-        HashMap<Integer, Pair<String, Boolean>> answers = new HashMap<>();
-
-        Statement statement = null;
-        try {
-            statement = getDbConnection().createStatement();
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        ResultSet resultSet;
-        try {
-            assert statement != null;
-            resultSet = statement.executeQuery(selectAnswersAtQuestionQuery);
-            while (resultSet.next()) {
-                if (Objects.equals(resultSet.getString(3), "true")) {
-                    answers.put(Integer.valueOf(resultSet.getString(1)),
-                            new Pair<>(resultSet.getString(2), true));
-                } else {
-                    answers.put(Integer.valueOf(resultSet.getString(1)),
-                            new Pair<>(resultSet.getString(2), false));
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return answers;
-    }
-
-    public HashMap<Integer, String> getTopics() {
-        String selectAllQuestionQuery = "SELECT " + DBConsts.TOPIC_ID + ", " + DBConsts.TOPIC_NAME +
-                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TOPIC_TABLE;
-
-        Statement statement;
-        HashMap<Integer, String> topics = new HashMap<>();
-        try {
-            statement = getDbConnection().createStatement();
-            ResultSet resultSet;
-            resultSet = statement.executeQuery(selectAllQuestionQuery);
-            while (resultSet.next()) {
-                topics.put(Integer.valueOf(resultSet.getString(1)), resultSet.getString(2));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return topics;
-    }
-
-    public HashMap<Integer, String> getModules() {
-        String selectAllQuestionQuery = "SELECT " + DBConsts.MODULE_ID + ", " + DBConsts.MODULE_NAME +
-                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.MODULE_TABLE;
-        Statement statement;
-        HashMap<Integer, String> modules = new HashMap<>();
-        try {
-            statement = getDbConnection().createStatement();
-            ResultSet resultSet;
-            resultSet = statement.executeQuery(selectAllQuestionQuery);
-            while (resultSet.next()) {
-                modules.put(Integer.valueOf(resultSet.getString(1)), resultSet.getString(2));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return modules;
     }
 
     public void addModule(String moduleName) {

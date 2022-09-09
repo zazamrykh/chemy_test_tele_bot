@@ -22,6 +22,7 @@ import lombok.SneakyThrows;
 
 public class TeleBot extends TelegramLongPollingBot {
     // HashMap users keep data about users conditions in bot conversation
+    // Key - ChatId, Value - Class User with information about user
     private final HashMap<Long, User> users = new HashMap<>();
 
     // HashMap userAnswers keep data about answer user at question
@@ -63,7 +64,7 @@ public class TeleBot extends TelegramLongPollingBot {
         }
         Long chatId = message.getChatId();
         if (!users.containsKey(chatId)) {
-            users.put(chatId, new User());
+            users.put(chatId, new User(chatId));
         }
 
         if (!message.hasEntities()) {
@@ -128,8 +129,11 @@ public class TeleBot extends TelegramLongPollingBot {
                     sendMessage(topic.getFirst() + ". " + topic.getSecond(), chatId);
                 }
             }
-            case "/get_topic_te" +
-                    "st" -> {
+            case "/get_topic_test" -> {
+                if (!currentUser.isRegistered()) {
+                    sendMessage("Вы не зарегистрированы. Введите '/register' чтобы зарегистрироваться.",
+                            chatId);
+                }
                 currentUser.setUserCondition(UserCondition.ENTERING_MODULE_FOR_GETTING_TEST);
                 List<List<InlineKeyboardButton>> buttons = getButtonsForChoosingTestingModule(dbHandler.getModules());
                 execute(SendMessage.builder()
@@ -148,6 +152,14 @@ public class TeleBot extends TelegramLongPollingBot {
                 sendMessage(BotMessages.AddTopicMessage, chatId);
             }
             case "/format" -> sendMessage(BotMessages.FormatMessage, chatId);
+            case "/register" -> {
+                if (currentUser.isRegistered()){
+                    sendMessage("Пользователь уже зарегестрирован.", chatId);
+                    return;
+                }
+                sendMessage("Введите ваше имя", chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_LOGIN);
+            }
         }
     }
 
@@ -157,7 +169,6 @@ public class TeleBot extends TelegramLongPollingBot {
         String messageText = message.getText();
         User currentUser = users.get(chatId);
         UserCondition currentCondition = currentUser.getUserCondition();
-        System.out.println(currentCondition);
         switch (currentCondition) {
             case ENTERING_MODULE -> {
                 currentUser.setModuleIds(messageText);
@@ -194,6 +205,34 @@ public class TeleBot extends TelegramLongPollingBot {
                 dbHandler.addTopic(topicName, moduleId);
                 currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 sendMessage(BotMessages.AddingTopicMessage, chatId);
+            }
+            case ENTERING_LOGIN -> {
+                currentUser.setLogin(messageText);
+                sendMessage("Введите пароль.", chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_PASSWORD);
+            }
+            case ENTERING_PASSWORD -> {
+                currentUser.setPassword(messageText);
+                List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
+                buttons.add(List.of(InlineKeyboardButton.builder()
+                        .text("Да").callbackData(CallBackData.AnswerIsAdmin + ":" +
+                                "true").build()));
+                buttons.add(List.of(InlineKeyboardButton.builder()
+                        .text("Нет").callbackData(CallBackData.AnswerIsAdmin + ":" +
+                                "false").build()));
+
+                execute(SendMessage.builder()
+                        .text(BotMessages.AreYouAdmin)
+                        .chatId(chatId)
+                        .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
+                        .build());
+
+                if (currentUser.register(chatId)){
+                    sendMessage("Успешная регистрация", chatId);
+                } else{
+                    sendMessage("Ошибка регистрации", chatId);
+                }
+                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
             }
         }
     }
@@ -279,6 +318,17 @@ public class TeleBot extends TelegramLongPollingBot {
                 currentUser.setQuestions(dbHandler.getQuestions(topicId));
                 currentUser.setTopic(new Pair<>(topicId, dbHandler.getTopicName(topicId)));
                 sendQuestion(currentUser.getCurrentQuestion(), chatId);
+            }
+            case CallBackData.AnswerIsAdmin -> {
+                User currentUser = users.get(chatId);
+                boolean isAdmin = Boolean.parseBoolean(callbackData[1]);
+                if (isAdmin) {
+                    sendMessage("Введите ключ доступа.", chatId);
+                    currentUser.setUserCondition(UserCondition.ENTERING_ACCESS_KEY);
+                } else {
+                    currentUser.setIsAdmin(false);
+                    //  Нужно изменить бд, сделать доп колонку в таблице студентов, isAdmin и соответственно поменять dbhandler.
+                }
             }
         }
 

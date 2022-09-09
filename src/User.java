@@ -5,6 +5,7 @@ import org.glassfish.grizzly.utils.Pair;
 
 
 public class User {
+    private long chatId;
     private UserCondition userCondition;
     // moduleIds - id modules where user wants to add question
     private String[] moduleIds;
@@ -16,12 +17,16 @@ public class User {
     private Pair<Integer, String> topic;
     private int points = 0;
     private int idCurrentQuestion = 0;
+    private String login;
+    private String password;
+    private boolean isAdmin;
 
-    User() {
+    User(long chatId) {
         userCondition = UserCondition.DOING_NOTHING;
+        this.chatId = chatId;
     }
 
-    User(UserCondition userCondition) {
+    User(UserCondition userCondition, long chatId) {
         this.userCondition = userCondition;
     }
 
@@ -104,5 +109,36 @@ public class User {
 
     public int getPoints() {
         return points;
+    }
+
+    public boolean isRegistered() {
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        return dbHandler.isUserRegistered(String.valueOf(chatId));
+    }
+
+    public boolean register(long chatId) {
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        boolean successfulAddStudent = dbHandler.addStudent(login, password);
+        if (!successfulAddStudent) {
+            dbHandler.deleteStudent(dbHandler.getStudentId(chatId));
+            return false;
+        }
+        return dbHandler.addChat(chatId, login);
+    }
+
+    public void setLogin(String login){
+        this.login = login;
+    }
+
+    public String getLogin(){
+        return login;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public void setIsAdmin(boolean isAdmin) {
+        this.isAdmin = isAdmin;
     }
 }

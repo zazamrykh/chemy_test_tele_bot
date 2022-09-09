@@ -262,7 +262,7 @@ public class DataBaseHandler extends DataBaseConfig {
         String questionId = String.valueOf(addQuestion(moduleIds, topicIds, questionText, testNumber));
         addAnswers(questionId, textIsCorrectIsHandwrittenAnswer);
     }
-
+//  Нужно все add сделать boolean, чтобы было понятно, выполнился запрос или нет
     public int addQuestion(String[] moduleIds, String[] topicIds,
                            String questionText, String testNumber) {
         // Add question to database and return question_id of inserted question
@@ -341,7 +341,6 @@ public class DataBaseHandler extends DataBaseConfig {
     }
 
     public void addModule(String moduleName) {
-        System.out.println(234);
         String insertQuestionQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.MODULE_TABLE +
                 " (" + DBConsts.MODULE_NAME + ") VALUES (?)";
         try {
@@ -364,5 +363,106 @@ public class DataBaseHandler extends DataBaseConfig {
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+    }
+
+    public boolean isUserRegistered(String chatId) {
+        String checkUserRegisteredQuery = "SELECT " + DBConsts.CHAT_ID +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.CHAT_TABLE +
+                " WHERE " + DBConsts.CHAT_ID + " = " + chatId;
+        Statement statement;
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(checkUserRegisteredQuery);
+            if (resultSet.next()) {
+                return true;
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean addStudent(String studentName, String password) {
+        String insertStudentQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_TABLE +
+                " (" + DBConsts.STUDENT_NAME +  ", " + DBConsts.PASSWORD +
+                ") VALUES (?, ?)";
+        try {
+            PreparedStatement prSt = getDbConnection().prepareStatement(insertStudentQuery);
+            prSt.setString(1, studentName);
+            prSt.setString(2, password);
+            prSt.executeUpdate();
+            return true;
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean addChat(long chatId, String login) {
+        String insertStudentQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.CHAT_TABLE +
+                " (" + DBConsts.CHAT_ID + ", " + DBConsts.STUDENT_ID + ") VALUES (?," + " ?)";
+        try {
+            PreparedStatement prSt = getDbConnection().prepareStatement(insertStudentQuery);
+            prSt.setString(1, String.valueOf(chatId));
+            prSt.setString(2, getStudentId(login));
+            prSt.executeUpdate();
+            return true;
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    private String getStudentId(String login) {
+        String getStudentIdQuery = "SELECT " + DBConsts.STUDENT_ID +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_TABLE +
+                " WHERE " + DBConsts.STUDENT_NAME + " = " + "\"" + login + "\"";
+
+        Statement statement;
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(getStudentIdQuery);
+            if (resultSet.next()) {
+                return resultSet.getString(1);
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public boolean deleteStudent(long studentId) {
+        String deleteStudentQuery = "DELETE FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_TABLE +
+                " WHERE " + DBConsts.STUDENT_ID + " = " + studentId;
+        try {
+            PreparedStatement prSt = getDbConnection().prepareStatement(deleteStudentQuery);
+            prSt.executeUpdate();
+            return true;
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return false;
+
+    }
+
+    public long getStudentId(long chatId){
+        String getStudentIdQuery = "SELECT " + DBConsts.STUDENT_ID +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.CHAT_TABLE +
+                " WHERE " + DBConsts.CHAT_ID + " = " + chatId;
+        Statement statement;
+
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(getStudentIdQuery);
+            if (resultSet.next()) {
+                return Long.parseLong(resultSet.getString(1));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        return -1;
     }
 }

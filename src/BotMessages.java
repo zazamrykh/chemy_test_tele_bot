@@ -31,4 +31,5 @@ public class BotMessages {
 
     public static final String PressingModuleForGettingTest = "Выберите модуль, из которого вы хотите взять тест.";
     public static final String PressingTopicForGettingTest = "Выберите тему, из которой вы хотите взять тест.";
+    public static String AreYouAdmin = "Являетесь ли вы преподавателем?";
 }

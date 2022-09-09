@@ -97,5 +97,4 @@ public class UserAnswer {
     public HashMap<Integer, Pair<String, Boolean>> getAnswers() {
         return answers;
     }
-
 }

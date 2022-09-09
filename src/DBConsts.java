@@ -1,4 +1,5 @@
 public class DBConsts {
+    // https://dbdesign.online/model/Ubgce3iCYJfC
     public static final String SCHEMA_NAME = "chemy_bot_schema";
 
     public static final String QUESTION_TABLE = "question";
@@ -21,5 +22,19 @@ public class DBConsts {
     public static final String TOPIC_NAME = "topic_name";
 
     public static final String QUESTION_TOPIC_MODULE_TABLE = "question_topic_module";
+
+    public static final String STUDENT_TABLE = "student";
+    public static final String STUDENT_ID = "student_id";
+    public static final String STUDENT_NAME = "student_name";
+    public static final String PASSWORD = "password";
+
+    public static final String TESTING_TABLE = "testing";
+    public static final String TESTING_ID = "testing_id";
+    public static final String BEGINING_DATETIME = "begining_datetime";
+    public static final String END_DATETIME = "end_datetime";
+    public static final String RESULT = "result";
+
+    public static final String CHAT_TABLE = "chat";
+    public static final String CHAT_ID = "chat_id";
 
 }

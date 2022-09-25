@@ -9,6 +9,7 @@ public class DBConsts {
 
     public static final String ANSWER_TABLE = "answer";
     public static final String ANSWER_ID = "answer_id";
+    public static final String ANSWER_IDS = "answer_ids";
     public static final String ANSWER_TEXT = "answer_text";
     public static final String IS_CORRECT = "is_correct";
     public static final String IS_HANDWRITTEN = "is_handwritten";
@@ -27,14 +28,19 @@ public class DBConsts {
     public static final String STUDENT_ID = "student_id";
     public static final String STUDENT_NAME = "student_name";
     public static final String PASSWORD = "password";
+    public static final String IS_ADMIN = "is_admin";
 
     public static final String TESTING_TABLE = "testing";
     public static final String TESTING_ID = "testing_id";
-    public static final String BEGINING_DATETIME = "begining_datetime";
+    public static final String BEGINNING_DATETIME = "beginning_datetime";
     public static final String END_DATETIME = "end_datetime";
     public static final String RESULT = "result";
+    public static final String DISCIPLINE_ID = "discipline_id";
+    public static final String KEY_CODE = "key_code";
+    public static final String DISCIPLINE = "discipline";
+    public static final String DISCIPLINE_NAME = "discipline_name";
 
-    public static final String CHAT_TABLE = "chat";
-    public static final String CHAT_ID = "chat_id";
-
+    public static final String STUDENT_ANSWER_TABLE = "student_answer";
+    public static final String MAX_BALL = "max_ball";
+    public static final String BALLS = "balls";
 }

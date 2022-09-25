@@ -5,33 +5,31 @@ import org.glassfish.grizzly.utils.Pair;
 
 
 public class User {
-    private long chatId;
+    private final long chatId;
     private UserCondition userCondition;
     // moduleIds - id modules where user wants to add question
     private String[] moduleIds;
     // topicIds - id topics relate question
     private String[] topicIds;
-    private String questionText;
     private HashMap<String, Pair<Boolean, Boolean>> answersToQuestion;
-    private List<Question> questions;
     private Pair<Integer, String> topic;
-    private int points = 0;
-    private int idCurrentQuestion = 0;
     private String login;
     private String password;
     private boolean isAdmin;
+    private Testing testing;
+    private String questionText;
 
     User(long chatId) {
         userCondition = UserCondition.DOING_NOTHING;
         this.chatId = chatId;
     }
 
-    User(UserCondition userCondition, long chatId) {
-        this.userCondition = userCondition;
-    }
-
     public UserCondition getUserCondition() {
         return userCondition;
+    }
+
+    public long getChatId() {
+        return chatId;
     }
 
     public void setUserCondition(UserCondition userCondition) {
@@ -40,10 +38,6 @@ public class User {
 
     public void setModuleIds(String moduleIds) {
         this.moduleIds = moduleIds.split(";");
-    }
-
-    public void setQuestionText(String questionText) {
-        this.questionText = questionText;
     }
 
     public void setTopicIds(String topicIds) {
@@ -62,41 +56,16 @@ public class User {
         this.answersToQuestion = answerIsCorrectIsHandwritten;
     }
 
-    public String getWarning() {
-        return null;
-    }
-
-    public void addQuestionToDB() {
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        dbHandler.addQuestionWithAnswers(moduleIds, topicIds, questionText, "-1", answersToQuestion);
-    }
-
     public void setQuestions(List<Question> questions) {
-        this.questions = questions;
+        testing.setQuestions(questions);
     }
 
     public Question getCurrentQuestion() {
-        return questions.get(idCurrentQuestion);
+        return testing.getCurrentQuestion();
     }
 
     public void incrementIdCurrentQuestion() {
-        idCurrentQuestion++;
-    }
-
-    public void resetIdCurrentQuestion() {
-        idCurrentQuestion = 1;
-    }
-
-    public void incrementPoints() {
-        points++;
-    }
-
-    public void resetPoints() {
-        points = 0;
-    }
-
-    public boolean isLastQuestion() {
-        return idCurrentQuestion == questions.size() - 1;
+        testing.incrementIdCurrentQuestion();
     }
 
     public void setTopic(Pair<Integer, String> topic) {
@@ -108,7 +77,7 @@ public class User {
     }
 
     public int getPoints() {
-        return points;
+        return testing.getPoints();
     }
 
     public boolean isRegistered() {
@@ -118,20 +87,11 @@ public class User {
 
     public boolean register(long chatId) {
         DataBaseHandler dbHandler = new DataBaseHandler();
-        boolean successfulAddStudent = dbHandler.addStudent(login, password);
-        if (!successfulAddStudent) {
-            dbHandler.deleteStudent(dbHandler.getStudentId(chatId));
-            return false;
-        }
-        return dbHandler.addChat(chatId, login);
+        return dbHandler.addStudent(chatId, login, password, isAdmin);
     }
 
-    public void setLogin(String login){
+    public void setLogin(String login) {
         this.login = login;
-    }
-
-    public String getLogin(){
-        return login;
     }
 
     public void setPassword(String password) {
@@ -140,5 +100,51 @@ public class User {
 
     public void setIsAdmin(boolean isAdmin) {
         this.isAdmin = isAdmin;
+    }
+
+    public boolean checkAccessKey(String accessKey) {
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        return dbHandler.checkAccessKey(accessKey);
+    }
+
+    public boolean tryMakeAdmin(long chatId, String keyCode) {
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        return dbHandler.tryMakeAdmin(chatId, keyCode);
+    }
+
+    public boolean checkIsAdmin(long chatId) {
+        if (!isRegistered()) {
+            return false;
+        }
+        DataBaseHandler dbHandler = new DataBaseHandler();
+        return dbHandler.checkIsAdmin(chatId);
+    }
+
+    public Testing getTesting() {
+        return testing;
+    }
+
+    public void setTesting(Testing testing) {
+        this.testing = testing;
+    }
+
+    public String[] getModuleIds() {
+        return moduleIds;
+    }
+
+    public String[] getTopicIds() {
+        return topicIds;
+    }
+
+    public HashMap<String, Pair<Boolean, Boolean>> getAnswersToQuestion() {
+        return answersToQuestion;
+    }
+
+    public void setQuestionText(String questionText) {
+        this.questionText = questionText;
+    }
+
+    public String getQuestionText(){
+        return questionText;
     }
 }

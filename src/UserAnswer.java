@@ -7,15 +7,18 @@ import java.util.Objects;
 import org.glassfish.grizzly.utils.Pair;
 
 public class UserAnswer {
-    DataBaseHandler dbHandler = new DataBaseHandler();
+    private final int questionId;
     private final HashMap<Integer, Pair<String, Boolean>> answers;
     private final HashMap<Integer, Pair<String, Boolean>> userAnswers = new HashMap<>();
     private boolean isAnswered = false;
     private int numberTrueAnswer = 0;
     private int numberPressedButtons = 0;
     private final List<Integer> chosenAnswers = new ArrayList<>();
+    private String beginningDateTime;
+    private String endDateTime;
 
-    UserAnswer(int questionId) {
+    UserAnswer(int questionId, DataBaseHandler dbHandler) {
+        this.questionId = questionId;
         answers = dbHandler.getAnswersAtQuestion(questionId);
         for (Map.Entry<Integer, Pair<String, Boolean>> entry : answers.entrySet()) {
             userAnswers.put(entry.getKey(), new Pair<>(entry.getValue().getFirst(), false));
@@ -51,6 +54,21 @@ public class UserAnswer {
             }
         }
         return points;
+    }
+
+    public int getQuestionId(){
+        return questionId;
+    }
+
+    // Returns id of answers in format "1;2;3"
+    public String getUserAnswers(){
+        String UserAnswersString = "";
+        for (Map.Entry<Integer, Pair<String, Boolean>> entry : answers.entrySet()) {
+            if (entry.getValue().getSecond()) {
+                UserAnswersString = UserAnswersString.concat(entry.getKey().toString()).concat(";");
+            }
+        }
+        return UserAnswersString;
     }
 
     public boolean isFullyCorrect() {
@@ -96,5 +114,21 @@ public class UserAnswer {
 
     public HashMap<Integer, Pair<String, Boolean>> getAnswers() {
         return answers;
+    }
+
+    public void setBeginningDateTime(String beginningDateTime) {
+        this.beginningDateTime = beginningDateTime;
+    }
+
+    public String getBeginningDateTime() {
+        return beginningDateTime;
+    }
+
+    public String getEndDateTime() {
+        return endDateTime;
+    }
+
+    public void setEndDateTime(String endDateTime) {
+        this.endDateTime = endDateTime;
     }
 }

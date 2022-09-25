@@ -31,5 +31,25 @@ public class BotMessages {
 
     public static final String PressingModuleForGettingTest = "Выберите модуль, из которого вы хотите взять тест.";
     public static final String PressingTopicForGettingTest = "Выберите тему, из которой вы хотите взять тест.";
-    public static String AreYouAdmin = "Являетесь ли вы преподавателем?";
+
+    public static final String AreYouAdmin = "Являетесь ли вы преподавателем?";
+    public static final String YouDoNotHaveAccessToAdminCommands = "Вы не имеете доступа к командам администратора. " +
+            "Чтобы получить доступ введите '/enter_key_code'.";
+    public static final String YouAreAlreadyAdmin = "Вы уже имеете доступ к командам администратора.";
+    public static final String YouAreNotRegistered = "Вы не зарегистрированы. " +
+            "Введите '/register' чтобы зарегистрироваться.";
+    public static final String EnterPassword = "Введите пароль.";
+    public static final String AnswerUpperQuestion = "Ответьте на вопрос выше.";
+    public static final String SuccessfulRegistration = "Успешная регистрация.";
+    public static final String WrongKeyCode = "Ключ доступа неверный. Регистрация не прошла.";
+    public static final String CorrectKeyCode = "Код верный. Теперь вы имеете доступ к командам администратора.";
+    public static final String WrongKeyCodeAgterRegistration = "Вы ввели неправильный код.";
+    public static final String EnterKeyCode = "Введите ключ доступа.";
+    public static final String RegistrationError = "Ошибка регистрации";
+    public static final String CollectedBalls = "Набранные баллы: ";
+    public static final String CollectedForTestBalls = "Набранные баллы за тест по теме";
+    public static final String Yes = "Да";
+    public static final String No = "Нет";
+    public static final String UserIsAlreadyRegistered = "Пользователь уже зарегестрирован.";
+    public static final String EnterYourName = "Введите ваше имя";
 }

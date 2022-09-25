@@ -1,4 +1,6 @@
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,17 +20,17 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.updatesreceivers.DefaultBotSession;
 
-import lombok.SneakyThrows;
-
 public class TeleBot extends TelegramLongPollingBot {
     // HashMap users keep data about users conditions in bot conversation
     // Key - ChatId, Value - Class User with information about user
     private final HashMap<Long, User> users = new HashMap<>();
 
+    private final DataBaseHandler dbHandler;
     // HashMap userAnswers keep data about answer user at question
-    private final HashMap<Integer, UserAnswer> userAnswers = new HashMap<>();
 
-    private Integer userAnswerId = -1;
+    public TeleBot(DataBaseHandler dbHandler) {
+        this.dbHandler = dbHandler;
+    }
 
     @Override
     public String getBotUsername() {
@@ -40,25 +42,26 @@ public class TeleBot extends TelegramLongPollingBot {
         return TelegramConfig.botToken;
     }
 
-    @SneakyThrows
-    public static void main(String[] args) {
-        TeleBot bot = new TeleBot();
+    public static void main(String[] args) throws TelegramApiException {
+        TeleBot bot = new TeleBot(new DataBaseHandler());
         TelegramBotsApi telegramBotsApi = new TelegramBotsApi(DefaultBotSession.class);
         telegramBotsApi.registerBot(bot);
     }
 
     @Override
-    @SneakyThrows
     public void onUpdateReceived(Update update) {
-        if (update.hasMessage()) {
-            handleMessage(update.getMessage());
-        } else if (update.hasCallbackQuery()) {
-            handleAnswer(update.getCallbackQuery());
+        try {
+            if (update.hasMessage()) {
+                handleMessage(update.getMessage());
+            } else if (update.hasCallbackQuery()) {
+                handleAnswer(update.getCallbackQuery());
+            }
+        } catch (TelegramApiException e) {
+            e.printStackTrace();
         }
     }
 
-    @SneakyThrows
-    private void handleMessage(Message message) {
+    private void handleMessage(Message message) throws TelegramApiException {
         if (!message.hasText()) {
             return;
         }
@@ -83,40 +86,66 @@ public class TeleBot extends TelegramLongPollingBot {
                 commandEntity.get().getLength());
 
         User currentUser = users.get(chatId);
-        DataBaseHandler dbHandler = new DataBaseHandler();
+
+        handleCommand(command, currentUser);
+    }
+
+    private void handleCommand(String command, User currentUser) throws TelegramApiException {
+        long chatId = currentUser.getChatId();
+        if (command.equals(Commands.Register)) {
+            if (currentUser.isRegistered()) {
+                sendMessage(BotMessages.UserIsAlreadyRegistered, chatId);
+                return;
+            }
+            sendMessage(BotMessages.EnterYourName, chatId);
+            currentUser.setUserCondition(UserCondition.ENTERING_LOGIN);
+        }
+
+        if (!currentUser.isRegistered()) {
+            sendMessage(BotMessages.YouAreNotRegistered, chatId);
+            return;
+        }
+
         switch (command) {
-            case "/add_question" -> {
+            // Treatment of admin commands
+            case Commands.AddQuestion -> {
+                if (!currentUser.checkIsAdmin(chatId)) {
+                    sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
+                    return;
+                }
                 currentUser.setUserCondition(UserCondition.ENTERING_MODULE);
                 sendMessage(BotMessages.AddQuestionMessage, chatId);
             }
-            case "/get_random_question" -> {
-                userAnswerId++;
-                int questionId = dbHandler.getRandomQuestionId();
-                userAnswers.put(userAnswerId, new UserAnswer(questionId));
-
-                List<List<InlineKeyboardButton>> buttons;
-                buttons = getButtons(userAnswerId, userAnswers.get(userAnswerId).getChosenAnswers());
-
-                String questionText = dbHandler.getQuestion(questionId);
-                execute(SendMessage.builder()
-                        .text(questionText)
-                        .chatId(chatId)
-                        .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
-                        .build());
-            }
-            case "/get_all_questions" -> {
-                List<String> allQuestions = dbHandler.getAllQuestions();
-                for (int i = 0; i < allQuestions.size(); i++) {
-                    sendMessage(i + " " + allQuestions.get(i), chatId);
+            case Commands.AddModule -> {
+                if (!currentUser.checkIsAdmin(chatId)) {
+                    sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
+                    return;
                 }
+                currentUser.setUserCondition(UserCondition.ADDING_MODULE);
+                sendMessage(BotMessages.AddModuleMessage, chatId);
             }
-            case "/get_modules" -> {
+            case Commands.AddTopic -> {
+                if (!currentUser.checkIsAdmin(chatId)) {
+                    sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
+                    return;
+                }
+                currentUser.setUserCondition(UserCondition.ADDING_TOPIC);
+                sendMessage(BotMessages.AddTopicMessage, chatId);
+            }
+            case Commands.Format -> {
+                if (!currentUser.checkIsAdmin(chatId)) {
+                    sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
+                    return;
+                }
+                sendMessage(BotMessages.FormatMessage, chatId);
+            }
+            case Commands.GetModules -> {
                 HashMap<Integer, String> modules = dbHandler.getModules();
                 for (Map.Entry<Integer, String> entry : modules.entrySet()) {
                     sendMessage(entry.getKey().toString() + ". " + entry.getValue(), chatId);
                 }
             }
-            case "/get_topics" -> {
+            case Commands.GetTopics -> {
                 List<Pair<Integer, String>> topics = dbHandler.getTopics();
                 Integer moduleId = -1;
                 for (Pair<Integer, String> topic : topics) {
@@ -129,11 +158,7 @@ public class TeleBot extends TelegramLongPollingBot {
                     sendMessage(topic.getFirst() + ". " + topic.getSecond(), chatId);
                 }
             }
-            case "/get_topic_test" -> {
-                if (!currentUser.isRegistered()) {
-                    sendMessage("Вы не зарегистрированы. Введите '/register' чтобы зарегистрироваться.",
-                            chatId);
-                }
+            case Commands.GetTopicTest -> {
                 currentUser.setUserCondition(UserCondition.ENTERING_MODULE_FOR_GETTING_TEST);
                 List<List<InlineKeyboardButton>> buttons = getButtonsForChoosingTestingModule(dbHandler.getModules());
                 execute(SendMessage.builder()
@@ -143,28 +168,18 @@ public class TeleBot extends TelegramLongPollingBot {
                         .build());
 
             }
-            case "/add_module" -> {
-                currentUser.setUserCondition(UserCondition.ADDING_MODULE);
-                sendMessage(BotMessages.AddModuleMessage, chatId);
-            }
-            case "/add_topic" -> {
-                currentUser.setUserCondition(UserCondition.ADDING_TOPIC);
-                sendMessage(BotMessages.AddTopicMessage, chatId);
-            }
-            case "/format" -> sendMessage(BotMessages.FormatMessage, chatId);
-            case "/register" -> {
-                if (currentUser.isRegistered()){
-                    sendMessage("Пользователь уже зарегестрирован.", chatId);
+            case Commands.EnterKeyCode -> {
+                if (currentUser.checkIsAdmin(chatId)) {
+                    sendMessage(BotMessages.YouAreAlreadyAdmin, chatId);
                     return;
                 }
-                sendMessage("Введите ваше имя", chatId);
-                currentUser.setUserCondition(UserCondition.ENTERING_LOGIN);
+                sendMessage(BotMessages.EnterKeyCode, chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_ACCESS_KEY_AFTER_REGISTRATION);
             }
         }
     }
 
-    @SneakyThrows
-    private void handleTextMessage(Message message) {
+    private void handleTextMessage(Message message) throws TelegramApiException {
         Long chatId = message.getChatId();
         String messageText = message.getText();
         User currentUser = users.get(chatId);
@@ -187,18 +202,18 @@ public class TeleBot extends TelegramLongPollingBot {
             }
             case ENTERING_ANSWERS -> {
                 currentUser.setAnswersToQuestion(messageText);
-                currentUser.addQuestionToDB();
+                dbHandler.addQuestionWithAnswers(currentUser.getModuleIds(), currentUser.getTopicIds(),
+                        currentUser.getQuestionText(), "-1",
+                        currentUser.getAnswersToQuestion());
                 sendMessage(BotMessages.EnteringAnswersMessage, chatId);
                 currentUser.setUserCondition(UserCondition.DOING_NOTHING);
             }
             case ADDING_MODULE -> {
-                DataBaseHandler dbHandler = new DataBaseHandler();
                 dbHandler.addModule(messageText);
                 currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 sendMessage(BotMessages.AddingModuleMessage, chatId);
             }
             case ADDING_TOPIC -> {
-                DataBaseHandler dbHandler = new DataBaseHandler();
                 String[] param = messageText.split(";");
                 String topicName = param[0];
                 int moduleId = Integer.parseInt(param[1]);
@@ -208,17 +223,17 @@ public class TeleBot extends TelegramLongPollingBot {
             }
             case ENTERING_LOGIN -> {
                 currentUser.setLogin(messageText);
-                sendMessage("Введите пароль.", chatId);
+                sendMessage(BotMessages.EnterPassword, chatId);
                 currentUser.setUserCondition(UserCondition.ENTERING_PASSWORD);
             }
             case ENTERING_PASSWORD -> {
                 currentUser.setPassword(messageText);
                 List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
                 buttons.add(List.of(InlineKeyboardButton.builder()
-                        .text("Да").callbackData(CallBackData.AnswerIsAdmin + ":" +
+                        .text(BotMessages.Yes).callbackData(CallbackData.AnswerIsAdmin + ":" +
                                 "true").build()));
                 buttons.add(List.of(InlineKeyboardButton.builder()
-                        .text("Нет").callbackData(CallBackData.AnswerIsAdmin + ":" +
+                        .text(BotMessages.No).callbackData(CallbackData.AnswerIsAdmin + ":" +
                                 "false").build()));
 
                 execute(SendMessage.builder()
@@ -227,12 +242,25 @@ public class TeleBot extends TelegramLongPollingBot {
                         .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
                         .build());
 
-                if (currentUser.register(chatId)){
-                    sendMessage("Успешная регистрация", chatId);
-                } else{
-                    sendMessage("Ошибка регистрации", chatId);
+                currentUser.setUserCondition(UserCondition.ANSWERING_IS_ADMIN);
+            }
+            case ANSWERING_IS_ADMIN -> sendMessage(BotMessages.AnswerUpperQuestion, chatId);
+            case ENTERING_ACCESS_KEY -> {
+                if (currentUser.checkAccessKey(messageText)) {
+                    currentUser.setIsAdmin(true);
+                    currentUser.register(chatId);
+                    sendMessage(BotMessages.SuccessfulRegistration, chatId);
+                } else {
+                    sendMessage(BotMessages.WrongKeyCode, chatId);
                 }
-                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
+
+            }
+            case ENTERING_ACCESS_KEY_AFTER_REGISTRATION -> {
+                if (currentUser.tryMakeAdmin(chatId, messageText)) {
+                    sendMessage(BotMessages.CorrectKeyCode, chatId);
+                } else {
+                    sendMessage(BotMessages.WrongKeyCodeAgterRegistration, chatId);
+                }
             }
         }
     }
@@ -243,9 +271,11 @@ public class TeleBot extends TelegramLongPollingBot {
         String action = callbackData[0];
         Long chatId = message.getChatId();
         switch (action) {
-            case CallBackData.PressOption -> {
-                Integer userAnswerId = Integer.parseInt(callbackData[1]);
-                UserAnswer userAnswer = userAnswers.get(userAnswerId);
+            case CallbackData.PressOption -> {
+                Integer userAnswerNumber = Integer.parseInt(callbackData[1]);
+                User currentUser = users.get(chatId);
+                Testing currentTesting = currentUser.getTesting();
+                UserAnswer userAnswer = currentTesting.getUserAnswer(userAnswerNumber);
                 if (userAnswer.isAnswered()) {
                     return;
                 }
@@ -255,8 +285,8 @@ public class TeleBot extends TelegramLongPollingBot {
                     execute(EditMessageReplyMarkup.builder()
                             .chatId(chatId)
                             .messageId(message.getMessageId())
-                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(getButtons(userAnswerId,
-                                    userAnswer.getChosenAnswers())).build())
+                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(getButtons(userAnswer,
+                                    userAnswer.getChosenAnswers(), userAnswerNumber)).build())
                             .build());
                 } else if (userAnswer.getNumberPressedButtons() < userAnswer.getNumberTrueAnswers()) {
                     userAnswer.changeUserAnswer(answerId);
@@ -264,42 +294,49 @@ public class TeleBot extends TelegramLongPollingBot {
                     execute(EditMessageReplyMarkup.builder()
                             .chatId(chatId)
                             .messageId(message.getMessageId())
-                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(getButtons(userAnswerId,
-                                    userAnswer.getChosenAnswers())).build())
+                            .replyMarkup(InlineKeyboardMarkup.builder().keyboard(getButtons(userAnswer,
+                                    userAnswer.getChosenAnswers(), userAnswerNumber)).build())
                             .build());
                 }
             }
-            case CallBackData.PressAnswer -> {
-                Integer userAnswerId = Integer.parseInt(callbackData[1]);
-                UserAnswer userAnswer = userAnswers.get(userAnswerId);
+            case CallbackData.PressAnswer -> {
+                Integer userAnswerNumber = Integer.parseInt(callbackData[1]);
+                User currentUser = users.get(chatId);
+                Testing currentTesting = currentUser.getTesting();
+
+                UserAnswer userAnswer = currentTesting.getUserAnswer(userAnswerNumber);
                 if (userAnswer.isAnswered()) {
                     return;
                 }
-                sendMessage("Набранные баллы: " + userAnswer.getPoints() + "/" +
+                sendMessage(BotMessages.CollectedBalls + userAnswer.getPoints() + "/" +
                         userAnswer.getNumberTrueAnswers(), chatId);
+                userAnswer.setEndDateTime(convertDateToSqlFormat(message.getDate()));
                 userAnswer.setAnswered(true);
-                User currentUser = users.get(chatId);
+                dbHandler.addStudentAnswer(currentUser, userAnswer);
                 if (currentUser.getUserCondition().equals(UserCondition.SOLVING_TEST)) {
                     if (userAnswer.isFullyCorrect()) {
-                        currentUser.incrementPoints();
+                        currentTesting.incrementPoints();
                     }
-                    if (currentUser.isLastQuestion()) {
-                        sendMessage("Набранные баллы за тест по теме \"" +
+                    if (currentTesting.isLastQuestion()) {
+                        currentTesting.setPoints(currentUser.getPoints());
+                        currentTesting.setEndDateTime(convertDateToSqlFormat(message.getDate()));
+                        dbHandler.addTesting(currentTesting);
+                        sendMessage(BotMessages.CollectedForTestBalls + " \"" +
                                 currentUser.getTopic().getSecond() + "\": " + currentUser.getPoints(), chatId);
                     } else {
-                        currentUser.incrementIdCurrentQuestion();
-                        sendQuestion(currentUser.getCurrentQuestion(), chatId);
+                        currentTesting.incrementIdCurrentQuestion();
+                        sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
+                                currentTesting.getUserAnswerNumber());
                     }
                 }
             }
-            case CallBackData.ChooseModule -> {
+            case CallbackData.ChooseModule -> {
                 User currentUser = users.get(chatId);
                 if (!currentUser.getUserCondition().equals(UserCondition.ENTERING_MODULE_FOR_GETTING_TEST)) {
                     return;
                 }
                 currentUser.setUserCondition(UserCondition.ENTERING_TOPIC_FOR_GETTING_TEST);
                 Integer moduleId = Integer.parseInt(callbackData[1]);
-                DataBaseHandler dbHandler = new DataBaseHandler();
                 List<List<InlineKeyboardButton>> buttons = getButtonsForChoosingTestingTopic(dbHandler.getTopics(moduleId));
                 execute(SendMessage.builder()
                         .text(BotMessages.PressingTopicForGettingTest)
@@ -307,36 +344,45 @@ public class TeleBot extends TelegramLongPollingBot {
                         .replyMarkup(InlineKeyboardMarkup.builder().keyboard(buttons).build())
                         .build());
             }
-            case CallBackData.ChooseTopic -> {
+            case CallbackData.ChooseTopic -> {
                 User currentUser = users.get(chatId);
                 if (!currentUser.getUserCondition().equals(UserCondition.ENTERING_TOPIC_FOR_GETTING_TEST)) {
                     return;
                 }
                 currentUser.setUserCondition(UserCondition.SOLVING_TEST);
                 int topicId = Integer.parseInt(callbackData[1]);
-                DataBaseHandler dbHandler = new DataBaseHandler();
+                Testing currentTesting = new Testing(chatId, convertDateToSqlFormat(message.getDate()), topicId);
+                currentUser.setTesting(currentTesting);
                 currentUser.setQuestions(dbHandler.getQuestions(topicId));
                 currentUser.setTopic(new Pair<>(topicId, dbHandler.getTopicName(topicId)));
-                sendQuestion(currentUser.getCurrentQuestion(), chatId);
+                sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
+                        currentTesting.getUserAnswerNumber());
             }
-            case CallBackData.AnswerIsAdmin -> {
+            case CallbackData.AnswerIsAdmin -> {
                 User currentUser = users.get(chatId);
                 boolean isAdmin = Boolean.parseBoolean(callbackData[1]);
                 if (isAdmin) {
-                    sendMessage("Введите ключ доступа.", chatId);
+                    sendMessage(BotMessages.EnterKeyCode, chatId);
                     currentUser.setUserCondition(UserCondition.ENTERING_ACCESS_KEY);
                 } else {
                     currentUser.setIsAdmin(false);
-                    //  Нужно изменить бд, сделать доп колонку в таблице студентов, isAdmin и соответственно поменять dbhandler.
+                    if (currentUser.register(chatId)) {
+                        sendMessage(BotMessages.SuccessfulRegistration, chatId);
+                    } else {
+                        sendMessage(BotMessages.RegistrationError, chatId);
+                    }
                 }
             }
         }
-
     }
 
-    private void sendQuestion(Question question, long chatId) throws TelegramApiException {
-        userAnswerId++;
-        userAnswers.put(userAnswerId, new UserAnswer(question.getQuestionId()));
+    private void sendQuestion(Question question, User user, Integer sendDateTime,
+                              Integer userAnswerNumber) throws TelegramApiException {
+        long chatId = user.getChatId();
+        Testing testing = user.getTesting();
+        testing.addUserAnswer(question.getQuestionId(), convertDateToSqlFormat(sendDateTime), dbHandler);
+        UserAnswer userAnswer = testing.getUserAnswer(userAnswerNumber);
+        userAnswer.setBeginningDateTime(convertDateToSqlFormat(sendDateTime));
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
         Integer answerId;
         String answerText;
@@ -347,11 +393,11 @@ public class TeleBot extends TelegramLongPollingBot {
             answerText = entry.getValue().getFirst();
             isAnswerCorrect = entry.getValue().getSecond();
             buttons.add(List.of(InlineKeyboardButton.builder()
-                    .text(answerText).callbackData(CallBackData.PressOption + ":" +
-                            userAnswerId + ":" + answerId + ":" + isAnswerCorrect).build()));
+                    .text(answerText).callbackData(CallbackData.PressOption + ":" +
+                            userAnswerNumber + ":" + answerId + ":" + isAnswerCorrect).build()));
         }
         buttons.add(List.of(InlineKeyboardButton.builder()
-                .text("Ответить").callbackData(CallBackData.PressAnswer + ":" + userAnswerId).build()));
+                .text("Ответить").callbackData(CallbackData.PressAnswer + ":" + userAnswerNumber).build()));
 
         execute(SendMessage.builder()
                 .text(question.getQuestionText())
@@ -367,8 +413,9 @@ public class TeleBot extends TelegramLongPollingBot {
                 .build());
     }
 
-    private List<List<InlineKeyboardButton>> getButtons(Integer userAnswerId, List<Integer> idChosenAnswers) {
-        HashMap<Integer, Pair<String, Boolean>> answers = userAnswers.get(userAnswerId).getAnswers();
+    private List<List<InlineKeyboardButton>> getButtons(UserAnswer userAnswer, List<Integer> idChosenAnswers,
+                                                        Integer userAnswerNumber) {
+        HashMap<Integer, Pair<String, Boolean>> answers = userAnswer.getAnswers();
         List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
         Integer answerId;
         String answerText;
@@ -382,11 +429,11 @@ public class TeleBot extends TelegramLongPollingBot {
             }
             isAnswerCorrect = entry.getValue().getSecond();
             buttons.add(List.of(InlineKeyboardButton.builder()
-                    .text(answerText).callbackData(CallBackData.PressOption + ":" +
-                            userAnswerId + ":" + answerId + ":" + isAnswerCorrect).build()));
+                    .text(answerText).callbackData(CallbackData.PressOption + ":" +
+                            userAnswerNumber + ":" + answerId + ":" + isAnswerCorrect).build()));
         }
         buttons.add(List.of(InlineKeyboardButton.builder()
-                .text("Ответить").callbackData(CallBackData.PressAnswer + ":" + userAnswerId).build()));
+                .text("Ответить").callbackData(CallbackData.PressAnswer + ":" + userAnswerNumber).build()));
         return buttons;
     }
 
@@ -396,7 +443,7 @@ public class TeleBot extends TelegramLongPollingBot {
         for (Map.Entry<Integer, String> module : modules.entrySet()) {
             moduleId = module.getKey();
             buttons.add(List.of(InlineKeyboardButton.builder()
-                    .text(moduleId + ". " + module.getValue()).callbackData(CallBackData.ChooseModule + ":" +
+                    .text(moduleId + ". " + module.getValue()).callbackData(CallbackData.ChooseModule + ":" +
                             moduleId).build()));
         }
         return buttons;
@@ -408,9 +455,18 @@ public class TeleBot extends TelegramLongPollingBot {
         for (Map.Entry<Integer, String> topic : topics.entrySet()) {
             topicId = topic.getKey();
             buttons.add(List.of(InlineKeyboardButton.builder()
-                    .text(topicId + ". " + topic.getValue()).callbackData(CallBackData.ChooseTopic + ":" +
+                    .text(topicId + ". " + topic.getValue()).callbackData(CallbackData.ChooseTopic + ":" +
                             topicId).build()));
         }
         return buttons;
+    }
+
+    private static Date convertUnixTimestampToDate(Integer timestamp) {
+        return new Date(timestamp * 1000L);
+    }
+
+    private static String convertDateToSqlFormat(Integer dateTime) {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return formatter.format(convertUnixTimestampToDate(dateTime));
     }
 }

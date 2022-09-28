@@ -1,23 +1,11 @@
-import java.util.HashMap;
-import java.util.List;
-
-import org.glassfish.grizzly.utils.Pair;
-
-
 public class User {
     private final long chatId;
     private UserCondition userCondition;
-    // moduleIds - id modules where user wants to add question
-    private String[] moduleIds;
-    // topicIds - id topics relate question
-    private String[] topicIds;
-    private HashMap<String, Pair<Boolean, Boolean>> answersToQuestion;
-    private Pair<Integer, String> topic;
+    private QuestionDataCollector questionDataCollector;
     private String login;
     private String password;
     private boolean isAdmin;
     private Testing testing;
-    private String questionText;
 
     User(long chatId) {
         userCondition = UserCondition.DOING_NOTHING;
@@ -36,44 +24,16 @@ public class User {
         this.userCondition = userCondition;
     }
 
-    public void setModuleIds(String moduleIds) {
-        this.moduleIds = moduleIds.split(";");
+    public QuestionDataCollector getQuestionDataCollector() {
+        return questionDataCollector;
     }
 
-    public void setTopicIds(String topicIds) {
-        this.topicIds = topicIds.split(";");
-    }
-
-    public void setAnswersToQuestion(String answersToQuestion) {
-        String[] param = answersToQuestion.split(";");
-        HashMap<String, Pair<Boolean, Boolean>> answerIsCorrectIsHandwritten = new HashMap<>();
-        for (int i = 0; i < param.length - 1; i += 2) {
-            String isCorrectString = param[i + 1];
-            boolean isCorrect;
-            isCorrect = isCorrectString.equals("Верный");
-            answerIsCorrectIsHandwritten.put(param[i], new Pair<>(isCorrect, false));
-        }
-        this.answersToQuestion = answerIsCorrectIsHandwritten;
-    }
-
-    public void setQuestions(List<Question> questions) {
-        testing.setQuestions(questions);
+    public void createQuestionDataCollector() {
+        questionDataCollector = new QuestionDataCollector();
     }
 
     public Question getCurrentQuestion() {
         return testing.getCurrentQuestion();
-    }
-
-    public void incrementIdCurrentQuestion() {
-        testing.incrementIdCurrentQuestion();
-    }
-
-    public void setTopic(Pair<Integer, String> topic) {
-        this.topic = topic;
-    }
-
-    public Pair<Integer, String> getTopic() {
-        return topic;
     }
 
     public int getPoints() {
@@ -126,25 +86,5 @@ public class User {
 
     public void setTesting(Testing testing) {
         this.testing = testing;
-    }
-
-    public String[] getModuleIds() {
-        return moduleIds;
-    }
-
-    public String[] getTopicIds() {
-        return topicIds;
-    }
-
-    public HashMap<String, Pair<Boolean, Boolean>> getAnswersToQuestion() {
-        return answersToQuestion;
-    }
-
-    public void setQuestionText(String questionText) {
-        this.questionText = questionText;
-    }
-
-    public String getQuestionText(){
-        return questionText;
     }
 }

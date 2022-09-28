@@ -7,15 +7,18 @@ public class Testing {
     private String endDateTime;
     private int points;
     private final int topicId;
-    private List<Question> questions;
+    private final String topicName;
+    private final List<Question> questions;
     private int idCurrentQuestion;
     private final HashMap<Integer, UserAnswer> userAnswers = new HashMap<>();
     private Integer userAnswerNumber = 0;
 
-    Testing(long studentId, String beginningDateTime, int topicId) {
+    Testing(long studentId, String beginningDateTime, int topicId, String topicName, List<Question> questions) {
+        this.topicName = topicName;
         this.studentId = studentId;
         this.beginningDateTime = beginningDateTime;
         this.topicId = topicId;
+        this.questions = questions;
     }
 
     public long getStudentId() {
@@ -50,10 +53,6 @@ public class Testing {
         points++;
     }
 
-    public void setQuestions(List<Question> questions) {
-        this.questions = questions;
-    }
-
     public Question getCurrentQuestion() {
         return questions.get(idCurrentQuestion);
     }
@@ -79,5 +78,9 @@ public class Testing {
 
     public Integer getUserAnswerNumber() {
         return userAnswerNumber;
+    }
+
+    public String getTopicName() {
+        return topicName;
     }
 }

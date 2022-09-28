@@ -231,7 +231,6 @@ public class DataBaseHandler extends DataBaseConfig {
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
-
         HashMap<Integer, Pair<String, Boolean>> answers;
         List<Question> questions = new ArrayList<>();
         for (Map.Entry<Integer, Pair<String, Integer>> entry : questionIdTextAndBall.entrySet()) {
@@ -262,21 +261,24 @@ public class DataBaseHandler extends DataBaseConfig {
     }
 
     public void addQuestionWithAnswers(String[] moduleIds, String[] topicIds, String questionText, String testNumber,
-                                       HashMap<String, Pair<Boolean, Boolean>> textIsCorrectIsHandwrittenAnswer) {
-        String questionId = String.valueOf(addQuestion(moduleIds, topicIds, questionText, testNumber));
+                                       HashMap<String, Pair<Boolean, Boolean>> textIsCorrectIsHandwrittenAnswer,
+                                       int maxBall) {
+        String questionId = String.valueOf(addQuestion(moduleIds, topicIds, questionText, testNumber, maxBall));
         addAnswers(questionId, textIsCorrectIsHandwrittenAnswer);
     }
 
     //  Нужно все add сделать boolean, чтобы было понятно, выполнился запрос или нет
     public int addQuestion(String[] moduleIds, String[] topicIds,
-                           String questionText, String testNumber) {
+                           String questionText, String testNumber, int maxBall) {
         // Add question to database and return question_id of inserted question
         String insertQuestionQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE +
-                " (" + DBConsts.TEST_NUMBER + ", " + DBConsts.QUESTION_TEXT + ") VALUES (?, ?)";
+                " (" + DBConsts.TEST_NUMBER + ", " + DBConsts.QUESTION_TEXT + ", " + DBConsts.MAX_BALL + ") " +
+                "VALUES (?, ?, ?)";
         try {
             PreparedStatement prSt = getDbConnection().prepareStatement(insertQuestionQuery);
             prSt.setString(1, testNumber);
             prSt.setString(2, questionText);
+            prSt.setString(3, String.valueOf(maxBall));
             prSt.executeUpdate();
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();

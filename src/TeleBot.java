@@ -113,6 +113,7 @@ public class TeleBot extends TelegramLongPollingBot {
                     sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
                     return;
                 }
+                currentUser.createQuestionDataCollector();
                 currentUser.setUserCondition(UserCondition.ENTERING_MODULE);
                 sendMessage(BotMessages.AddQuestionMessage, chatId);
             }
@@ -186,27 +187,35 @@ public class TeleBot extends TelegramLongPollingBot {
         UserCondition currentCondition = currentUser.getUserCondition();
         switch (currentCondition) {
             case ENTERING_MODULE -> {
-                currentUser.setModuleIds(messageText);
+                currentUser.getQuestionDataCollector().setModuleIds(messageText);
                 sendMessage(BotMessages.EnteringModuleMessage, chatId);
                 currentUser.setUserCondition(UserCondition.ENTERING_TOPIC);
             }
             case ENTERING_TOPIC -> {
-                currentUser.setTopicIds(messageText);
+                currentUser.getQuestionDataCollector().setTopicIds(messageText);
                 sendMessage(BotMessages.EnteringTopicMessage, chatId);
                 currentUser.setUserCondition(UserCondition.ENTERING_QUESTION);
             }
             case ENTERING_QUESTION -> {
-                currentUser.setQuestionText(messageText);
+                currentUser.getQuestionDataCollector().setQuestionText(messageText);
                 sendMessage(BotMessages.EnteringQuestionMessage, chatId);
                 currentUser.setUserCondition(UserCondition.ENTERING_ANSWERS);
             }
             case ENTERING_ANSWERS -> {
-                currentUser.setAnswersToQuestion(messageText);
-                dbHandler.addQuestionWithAnswers(currentUser.getModuleIds(), currentUser.getTopicIds(),
-                        currentUser.getQuestionText(), "-1",
-                        currentUser.getAnswersToQuestion());
-                sendMessage(BotMessages.EnteringAnswersMessage, chatId);
-                currentUser.setUserCondition(UserCondition.DOING_NOTHING);
+                QuestionDataCollector questionDataCollector = currentUser.getQuestionDataCollector();
+                questionDataCollector.setAnswersToQuestion(messageText);
+                sendMessage(BotMessages.EnterMaxBalls, chatId);
+                currentUser.setUserCondition(UserCondition.ENTERING_MAX_BALL);
+            }
+            case ENTERING_MAX_BALL -> {
+                QuestionDataCollector questionDataCollector = currentUser.getQuestionDataCollector();
+                questionDataCollector.setMaxBall(Integer.parseInt(messageText));
+                sendMessage(BotMessages.AnswerWasAdded, chatId);
+                dbHandler.addQuestionWithAnswers(questionDataCollector.getModuleIds(),
+                        questionDataCollector.getTopicIds(),
+                        questionDataCollector.getQuestionText(), "-1",
+                        questionDataCollector.getAnswersToQuestion(),
+                        questionDataCollector.getMaxBall());
             }
             case ADDING_MODULE -> {
                 dbHandler.addModule(messageText);
@@ -322,7 +331,7 @@ public class TeleBot extends TelegramLongPollingBot {
                         currentTesting.setEndDateTime(convertDateToSqlFormat(message.getDate()));
                         dbHandler.addTesting(currentTesting);
                         sendMessage(BotMessages.CollectedForTestBalls + " \"" +
-                                currentUser.getTopic().getSecond() + "\": " + currentUser.getPoints(), chatId);
+                                currentTesting.getTopicName() + "\": " + currentUser.getPoints(), chatId);
                     } else {
                         currentTesting.incrementIdCurrentQuestion();
                         sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
@@ -351,10 +360,10 @@ public class TeleBot extends TelegramLongPollingBot {
                 }
                 currentUser.setUserCondition(UserCondition.SOLVING_TEST);
                 int topicId = Integer.parseInt(callbackData[1]);
-                Testing currentTesting = new Testing(chatId, convertDateToSqlFormat(message.getDate()), topicId);
+                String topicName = dbHandler.getTopicName(topicId);
+                Testing currentTesting = new Testing(chatId, convertDateToSqlFormat(message.getDate()),
+                        topicId, topicName, dbHandler.getQuestions(topicId));
                 currentUser.setTesting(currentTesting);
-                currentUser.setQuestions(dbHandler.getQuestions(topicId));
-                currentUser.setTopic(new Pair<>(topicId, dbHandler.getTopicName(topicId)));
                 sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
                         currentTesting.getUserAnswerNumber());
             }

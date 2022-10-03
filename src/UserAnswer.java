@@ -56,19 +56,19 @@ public class UserAnswer {
         return points;
     }
 
-    public int getQuestionId(){
+    public int getQuestionId() {
         return questionId;
     }
 
     // Returns id of answers in format "1;2;3"
-    public String getUserAnswers(){
-        String UserAnswersString = "";
+    public List<Integer> getUserAnswerIds() {
+        List<Integer> userAnswers = new ArrayList<>();
         for (Map.Entry<Integer, Pair<String, Boolean>> entry : answers.entrySet()) {
             if (entry.getValue().getSecond()) {
-                UserAnswersString = UserAnswersString.concat(entry.getKey().toString()).concat(";");
+                userAnswers.add(entry.getKey());
             }
         }
-        return UserAnswersString;
+        return userAnswers;
     }
 
     public boolean isFullyCorrect() {

@@ -93,15 +93,16 @@ public class TeleBot extends TelegramLongPollingBot {
     private void handleCommand(String command, User currentUser) throws TelegramApiException {
         long chatId = currentUser.getChatId();
         if (command.equals(Commands.Register)) {
-            if (currentUser.isRegistered()) {
+            if (currentUser.getRegistrationManager().isRegistered()) {
                 sendMessage(BotMessages.UserIsAlreadyRegistered, chatId);
                 return;
             }
             sendMessage(BotMessages.EnterYourName, chatId);
             currentUser.setUserCondition(UserCondition.ENTERING_LOGIN);
+            return;
         }
 
-        if (!currentUser.isRegistered()) {
+        if (!currentUser.getRegistrationManager().isRegistered()) {
             sendMessage(BotMessages.YouAreNotRegistered, chatId);
             return;
         }
@@ -109,7 +110,7 @@ public class TeleBot extends TelegramLongPollingBot {
         switch (command) {
             // Treatment of admin commands
             case Commands.AddQuestion -> {
-                if (!currentUser.checkIsAdmin(chatId)) {
+                if (!currentUser.getRegistrationManager().checkIsAdmin(chatId)) {
                     sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
                     return;
                 }
@@ -118,7 +119,7 @@ public class TeleBot extends TelegramLongPollingBot {
                 sendMessage(BotMessages.AddQuestionMessage, chatId);
             }
             case Commands.AddModule -> {
-                if (!currentUser.checkIsAdmin(chatId)) {
+                if (!currentUser.getRegistrationManager().checkIsAdmin(chatId)) {
                     sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
                     return;
                 }
@@ -126,7 +127,7 @@ public class TeleBot extends TelegramLongPollingBot {
                 sendMessage(BotMessages.AddModuleMessage, chatId);
             }
             case Commands.AddTopic -> {
-                if (!currentUser.checkIsAdmin(chatId)) {
+                if (!currentUser.getRegistrationManager().checkIsAdmin(chatId)) {
                     sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
                     return;
                 }
@@ -134,7 +135,7 @@ public class TeleBot extends TelegramLongPollingBot {
                 sendMessage(BotMessages.AddTopicMessage, chatId);
             }
             case Commands.Format -> {
-                if (!currentUser.checkIsAdmin(chatId)) {
+                if (!currentUser.getRegistrationManager().checkIsAdmin(chatId)) {
                     sendMessage(BotMessages.YouDoNotHaveAccessToAdminCommands, chatId);
                     return;
                 }
@@ -170,7 +171,7 @@ public class TeleBot extends TelegramLongPollingBot {
 
             }
             case Commands.EnterKeyCode -> {
-                if (currentUser.checkIsAdmin(chatId)) {
+                if (currentUser.getRegistrationManager().checkIsAdmin(chatId)) {
                     sendMessage(BotMessages.YouAreAlreadyAdmin, chatId);
                     return;
                 }
@@ -231,12 +232,7 @@ public class TeleBot extends TelegramLongPollingBot {
                 sendMessage(BotMessages.AddingTopicMessage, chatId);
             }
             case ENTERING_LOGIN -> {
-                currentUser.setLogin(messageText);
-                sendMessage(BotMessages.EnterPassword, chatId);
-                currentUser.setUserCondition(UserCondition.ENTERING_PASSWORD);
-            }
-            case ENTERING_PASSWORD -> {
-                currentUser.setPassword(messageText);
+                currentUser.getRegistrationManager().setLogin(messageText.trim());
                 List<List<InlineKeyboardButton>> buttons = new ArrayList<>();
                 buttons.add(List.of(InlineKeyboardButton.builder()
                         .text(BotMessages.Yes).callbackData(CallbackData.AnswerIsAdmin + ":" +
@@ -255,20 +251,25 @@ public class TeleBot extends TelegramLongPollingBot {
             }
             case ANSWERING_IS_ADMIN -> sendMessage(BotMessages.AnswerUpperQuestion, chatId);
             case ENTERING_ACCESS_KEY -> {
-                if (currentUser.checkAccessKey(messageText)) {
-                    currentUser.setIsAdmin(true);
-                    currentUser.register(chatId);
+                RegistrationManager currentRegistrationManager = currentUser.getRegistrationManager();
+                if (currentRegistrationManager.checkAccessKey(messageText)) {
+                    currentRegistrationManager.setIsAdmin(true);
+                    currentRegistrationManager.register();
                     sendMessage(BotMessages.SuccessfulRegistration, chatId);
+                    currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 } else {
                     sendMessage(BotMessages.WrongKeyCode, chatId);
+                    currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 }
 
             }
             case ENTERING_ACCESS_KEY_AFTER_REGISTRATION -> {
-                if (currentUser.tryMakeAdmin(chatId, messageText)) {
+                if (currentUser.getRegistrationManager().tryMakeAdmin(chatId, messageText)) {
                     sendMessage(BotMessages.CorrectKeyCode, chatId);
+                    currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 } else {
                     sendMessage(BotMessages.WrongKeyCodeAgterRegistration, chatId);
+                    currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                 }
             }
         }
@@ -312,29 +313,30 @@ public class TeleBot extends TelegramLongPollingBot {
                 Integer userAnswerNumber = Integer.parseInt(callbackData[1]);
                 User currentUser = users.get(chatId);
                 Testing currentTesting = currentUser.getTesting();
-
                 UserAnswer userAnswer = currentTesting.getUserAnswer(userAnswerNumber);
                 if (userAnswer.isAnswered()) {
                     return;
                 }
                 sendMessage(BotMessages.CollectedBalls + userAnswer.getPoints() + "/" +
                         userAnswer.getNumberTrueAnswers(), chatId);
+
                 userAnswer.setEndDateTime(convertDateToSqlFormat(message.getDate()));
                 userAnswer.setAnswered(true);
-                dbHandler.addStudentAnswer(currentUser, userAnswer);
+                dbHandler.addStudentAnswer(currentUser);
+
                 if (currentUser.getUserCondition().equals(UserCondition.SOLVING_TEST)) {
                     if (userAnswer.isFullyCorrect()) {
                         currentTesting.incrementPoints();
                     }
                     if (currentTesting.isLastQuestion()) {
-                        currentTesting.setPoints(currentUser.getPoints());
+                        currentTesting.setPoints(currentUser.getTesting().getPoints());
                         currentTesting.setEndDateTime(convertDateToSqlFormat(message.getDate()));
-                        dbHandler.addTesting(currentTesting);
+                        dbHandler.completeTesting(currentTesting);
                         sendMessage(BotMessages.CollectedForTestBalls + " \"" +
-                                currentTesting.getTopicName() + "\": " + currentUser.getPoints(), chatId);
+                                currentTesting.getTopicName() + "\": " + currentUser.getTesting().getPoints(), chatId);
                     } else {
                         currentTesting.incrementIdCurrentQuestion();
-                        sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
+                        sendQuestion(currentUser.getTesting().getCurrentQuestion(), currentUser, message.getDate(),
                                 currentTesting.getUserAnswerNumber());
                     }
                 }
@@ -363,22 +365,32 @@ public class TeleBot extends TelegramLongPollingBot {
                 String topicName = dbHandler.getTopicName(topicId);
                 Testing currentTesting = new Testing(chatId, convertDateToSqlFormat(message.getDate()),
                         topicId, topicName, dbHandler.getQuestions(topicId));
+                dbHandler.addTesting(currentTesting);
                 currentUser.setTesting(currentTesting);
-                sendQuestion(currentUser.getCurrentQuestion(), currentUser, message.getDate(),
+                sendQuestion(currentUser.getTesting().getCurrentQuestion(), currentUser, message.getDate(),
                         currentTesting.getUserAnswerNumber());
             }
             case CallbackData.AnswerIsAdmin -> {
                 User currentUser = users.get(chatId);
+                if (!currentUser.getUserCondition().equals(UserCondition.ANSWERING_IS_ADMIN)) {
+                    return;
+                }
+                if (currentUser.getRegistrationManager().isRegistered()) {
+                    return;
+                }
                 boolean isAdmin = Boolean.parseBoolean(callbackData[1]);
                 if (isAdmin) {
+                    System.out.println(380);
                     sendMessage(BotMessages.EnterKeyCode, chatId);
                     currentUser.setUserCondition(UserCondition.ENTERING_ACCESS_KEY);
                 } else {
-                    currentUser.setIsAdmin(false);
-                    if (currentUser.register(chatId)) {
+                    currentUser.getRegistrationManager().setIsAdmin(false);
+                    if (currentUser.getRegistrationManager().register()) {
                         sendMessage(BotMessages.SuccessfulRegistration, chatId);
+                        currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                     } else {
                         sendMessage(BotMessages.RegistrationError, chatId);
+                        currentUser.setUserCondition(UserCondition.DOING_NOTHING);
                     }
                 }
             }

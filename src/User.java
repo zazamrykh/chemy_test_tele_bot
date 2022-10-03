@@ -2,14 +2,13 @@ public class User {
     private final long chatId;
     private UserCondition userCondition;
     private QuestionDataCollector questionDataCollector;
-    private String login;
-    private String password;
-    private boolean isAdmin;
+    private final RegistrationManager registrationManager;
     private Testing testing;
 
     User(long chatId) {
         userCondition = UserCondition.DOING_NOTHING;
         this.chatId = chatId;
+        registrationManager = new RegistrationManager(chatId);
     }
 
     public UserCondition getUserCondition() {
@@ -32,59 +31,15 @@ public class User {
         questionDataCollector = new QuestionDataCollector();
     }
 
-    public Question getCurrentQuestion() {
-        return testing.getCurrentQuestion();
-    }
-
-    public int getPoints() {
-        return testing.getPoints();
-    }
-
-    public boolean isRegistered() {
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        return dbHandler.isUserRegistered(String.valueOf(chatId));
-    }
-
-    public boolean register(long chatId) {
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        return dbHandler.addStudent(chatId, login, password, isAdmin);
-    }
-
-    public void setLogin(String login) {
-        this.login = login;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public void setIsAdmin(boolean isAdmin) {
-        this.isAdmin = isAdmin;
-    }
-
-    public boolean checkAccessKey(String accessKey) {
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        return dbHandler.checkAccessKey(accessKey);
-    }
-
-    public boolean tryMakeAdmin(long chatId, String keyCode) {
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        return dbHandler.tryMakeAdmin(chatId, keyCode);
-    }
-
-    public boolean checkIsAdmin(long chatId) {
-        if (!isRegistered()) {
-            return false;
-        }
-        DataBaseHandler dbHandler = new DataBaseHandler();
-        return dbHandler.checkIsAdmin(chatId);
-    }
-
     public Testing getTesting() {
         return testing;
     }
 
     public void setTesting(Testing testing) {
         this.testing = testing;
+    }
+
+    public RegistrationManager getRegistrationManager() {
+        return registrationManager;
     }
 }

@@ -2,7 +2,7 @@ import java.util.HashMap;
 
 import org.glassfish.grizzly.utils.Pair;
 
-public final class QuestionDataCollector implements Collectable {
+public final class QuestionDataCollector {
     // moduleIds - id modules where user wants to add question
     private String[] moduleIds;
     // topicIds - id topics relate question

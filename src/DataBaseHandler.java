@@ -71,27 +71,6 @@ public class DataBaseHandler extends DataBaseConfig {
         return null;
     }
 
-    public List<String> getAllQuestions() {
-        String selectAllQuestionQuery = "SELECT " + DBConsts.QUESTION_ID + ", " + DBConsts.QUESTION_TEXT +
-                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE;
-
-        Statement statement;
-        List<String> allQuestions = new ArrayList<>();
-        List<String> questionId = new ArrayList<>();
-        try {
-            statement = getDbConnection().createStatement();
-            ResultSet resultSet;
-            resultSet = statement.executeQuery(selectAllQuestionQuery);
-            while (resultSet.next()) {
-                questionId.add(resultSet.getString(1));
-                allQuestions.add(resultSet.getString(2));
-            }
-        } catch (SQLException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return allQuestions;
-    }
-
     public HashMap<Integer, Pair<String, Boolean>> getAnswersAtQuestion(int questionId) {
         String selectAnswersAtQuestionQuery = "SELECT " + DBConsts.ANSWER_ID + ", "
                 + DBConsts.ANSWER_TEXT + ", "
@@ -390,19 +369,18 @@ public class DataBaseHandler extends DataBaseConfig {
         return false;
     }
 
-    public boolean addStudent(long chatId, String studentName, String password, boolean isAdmin) {
+    public boolean addStudent(long chatId, String studentName,
+                              boolean isAdmin) {
         String insertStudentQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_TABLE +
                 " (" + DBConsts.STUDENT_ID + ", " + DBConsts.STUDENT_NAME + ", "
-                + DBConsts.PASSWORD + ", " + DBConsts.IS_ADMIN + ", " + DBConsts.DISCIPLINE_ID
-                + ") VALUES (?, ?, ?, ?, ?)";
-        System.out.println(insertStudentQuery);
+                + DBConsts.IS_ADMIN + ", " + DBConsts.DISCIPLINE_ID
+                + ") VALUES (?, ?, ?, ?)";
         try {
             PreparedStatement prSt = getDbConnection().prepareStatement(insertStudentQuery);
             prSt.setString(1, String.valueOf(chatId));
             prSt.setString(2, studentName);
-            prSt.setString(3, password);
-            prSt.setString(4, String.valueOf(isAdmin));
-            prSt.setString(5, "1");
+            prSt.setString(3, String.valueOf(isAdmin));
+            prSt.setString(4, "1");
             prSt.executeUpdate();
             return true;
         } catch (SQLException | ClassNotFoundException e) {
@@ -444,6 +422,11 @@ public class DataBaseHandler extends DataBaseConfig {
     }
 
     public boolean checkAccessKey(String accessKey) {
+        try {
+            Integer.parseInt(accessKey);
+        } catch (NumberFormatException e) {
+            return false;
+        }
         String checkAccessKeyQuery = "SELECT " + DBConsts.DISCIPLINE_NAME +
                 " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.DISCIPLINE +
                 " WHERE " + DBConsts.KEY_CODE + " = " + accessKey;
@@ -469,7 +452,6 @@ public class DataBaseHandler extends DataBaseConfig {
         String setIsAdminQuery = "UPDATE " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_TABLE +
                 " SET " + DBConsts.IS_ADMIN + " = " + "'true'" +
                 " WHERE " + DBConsts.STUDENT_ID + " = " + chatId;
-        System.out.println(setIsAdminQuery);
         try {
             PreparedStatement prSt = getDbConnection().prepareStatement(setIsAdminQuery);
             prSt.executeUpdate();
@@ -491,7 +473,7 @@ public class DataBaseHandler extends DataBaseConfig {
             ResultSet resultSet;
             resultSet = statement.executeQuery(checkIsAdminQuery);
             if (resultSet.next()) {
-                return true;
+                return resultSet.getString(1).equals("true");
             }
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
@@ -499,42 +481,97 @@ public class DataBaseHandler extends DataBaseConfig {
         return false;
     }
 
-    public void addStudentAnswer(User currentUser, UserAnswer userAnswer) {
-        String insertStudentAnswerQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_ANSWER_TABLE +
-                " (" + DBConsts.STUDENT_ID + ", " + DBConsts.QUESTION_ID + ", "
-                + DBConsts.ANSWER_IDS + ", " + DBConsts.IS_CORRECT + ", " + DBConsts.BEGINNING_DATETIME
-                + ", " + DBConsts.END_DATETIME + ", " + DBConsts.BALLS
-                + ") VALUES (?, ?, ?, ?, ?, ?, ?)";
+    public void addStudentAnswer(User currentUser) {
+        Testing testing = currentUser.getTesting();
+        UserAnswer userAnswer = testing.getUserAnswer(testing.getUserAnswerNumber() - 1);
+        for (Integer userAnswerId : userAnswer.getUserAnswerIds()) {
+            String insertStudentAnswerQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.STUDENT_ANSWER_TABLE +
+                    " (" + DBConsts.STUDENT_ID + ", " + DBConsts.QUESTION_ID + ", "
+                    + DBConsts.ANSWER_ID + ", " + DBConsts.IS_CORRECT + ", " + DBConsts.BEGINNING_DATETIME
+                    + ", " + DBConsts.END_DATETIME + ", " + DBConsts.BALLS + ", " + DBConsts.TESTING_ID
+                    + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            try {
+                PreparedStatement prSt = getDbConnection().prepareStatement(insertStudentAnswerQuery);
+                prSt.setString(1, String.valueOf(currentUser.getChatId()));
+                prSt.setString(2, String.valueOf(userAnswer.getQuestionId()));
+                prSt.setString(3, String.valueOf(userAnswerId));
+                prSt.setString(4, String.valueOf(userAnswer.isFullyCorrect()));
+                prSt.setString(5, userAnswer.getBeginningDateTime());
+                prSt.setString(6, userAnswer.getEndDateTime());
+                prSt.setString(7, String.valueOf(testing.getCurrentQuestion().maxBall()));
+                prSt.setString(8, String.valueOf(testing.getTestingId()));
+                prSt.executeUpdate();
+            } catch (SQLException | ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public void addTesting(Testing testing) {
+        String addTestingQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.TESTING_TABLE +
+                " (" + DBConsts.STUDENT_ID + ", " + DBConsts.BEGINNING_DATETIME + ", " + DBConsts.TOPIC_ID
+                + ", " +  DBConsts.MAX_BALL + ") VALUES (?, ?, ?, ?)";
         try {
-            PreparedStatement prSt = getDbConnection().prepareStatement(insertStudentAnswerQuery);
-            prSt.setString(1, String.valueOf(currentUser.getChatId()));
-            prSt.setString(2, String.valueOf(userAnswer.getQuestionId()));
-            prSt.setString(3, userAnswer.getUserAnswers());
-            prSt.setString(4, String.valueOf(userAnswer.isFullyCorrect()));
-            prSt.setString(5, userAnswer.getBeginningDateTime());
-            prSt.setString(6, userAnswer.getEndDateTime());
-            prSt.setString(7, String.valueOf(currentUser.getCurrentQuestion().maxBall()));
+            PreparedStatement prSt = getDbConnection().prepareStatement(addTestingQuery);
+            prSt.setString(1, String.valueOf(testing.getStudentId()));
+            prSt.setString(2, testing.getBeginningDateTime());
+            prSt.setString(3, String.valueOf(testing.getTopicId()));
+            prSt.setString(4, String.valueOf(getMaxBallsForTopic(testing.getTopicId())));
+            prSt.executeUpdate();
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        String selectTestingIdQuery = "SELECT MAX(" + DBConsts.TESTING_ID + ")" +
+                " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.TESTING_TABLE;
+        int testingId = 0;
+        Statement statement;
+        try {
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(selectTestingIdQuery);
+            if (resultSet.next()) {
+                testingId = Integer.parseInt(resultSet.getString(1));
+            }
+        } catch (SQLException | ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        testing.setTestingId(testingId);
+    }
+
+    public void completeTesting(Testing testing) {
+        String addTestingQuery = "UPDATE " + DBConsts.SCHEMA_NAME + "." + DBConsts.TESTING_TABLE +
+                " SET " + DBConsts.END_DATETIME + " = " + "'" + testing.getEndDateTime() + "'" +
+                ", " + DBConsts.RESULT + " = " + testing.getPoints() +
+                " WHERE " + DBConsts.TESTING_ID + " = " + testing.getTestingId();
+        try {
+            PreparedStatement prSt = getDbConnection().prepareStatement(addTestingQuery);
             prSt.executeUpdate();
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
     }
 
-    public void addTesting(Testing testing) {
-        String addTestingQuery = "INSERT INTO " + DBConsts.SCHEMA_NAME + "." + DBConsts.TESTING_TABLE +
-                " (" + DBConsts.STUDENT_ID + ", " + DBConsts.BEGINNING_DATETIME + ", " + DBConsts.END_DATETIME + ", "
-                + DBConsts.RESULT + ", " + DBConsts.TOPIC_ID
-                + ") VALUES (?, ?, ?, ?, ?)";
+    public int getMaxBallsForTopic (int topicId){
+        String queryIn = "SELECT DISTINCT " + DBConsts.QUESTION_ID + ", "
+                + DBConsts.TOPIC_ID + ", " + DBConsts.MAX_BALL
+                + " FROM " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TOPIC_MODULE_TABLE
+                + " INNER JOIN " + DBConsts.SCHEMA_NAME + "." + DBConsts.QUESTION_TABLE
+                + " USING (" + DBConsts.QUESTION_ID + ")"
+                + " WHERE " + DBConsts.TOPIC_ID + " = " + topicId;
+        String getMaxBallsQuery = "SELECT SUM(" + DBConsts.MAX_BALL + ")" +
+                " FROM (" + queryIn + ") query_in";
+
+        Statement statement;
         try {
-            PreparedStatement prSt = getDbConnection().prepareStatement(addTestingQuery);
-            prSt.setString(1, String.valueOf(testing.getStudentId()));
-            prSt.setString(2, testing.getBeginningDateTime());
-            prSt.setString(3, testing.getEndDateTime());
-            prSt.setString(4, String.valueOf(testing.getPoints()));
-            prSt.setString(5, String.valueOf(testing.getTopicId()));
-            prSt.executeUpdate();
+            statement = getDbConnection().createStatement();
+            ResultSet resultSet;
+            resultSet = statement.executeQuery(getMaxBallsQuery);
+            if (resultSet.next()) {
+                return Integer.parseInt(resultSet.getString(1));
+            }
         } catch (SQLException | ClassNotFoundException e) {
             e.printStackTrace();
         }
+        return -1;
     }
 }

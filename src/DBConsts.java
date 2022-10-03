@@ -9,7 +9,6 @@ public class DBConsts {
 
     public static final String ANSWER_TABLE = "answer";
     public static final String ANSWER_ID = "answer_id";
-    public static final String ANSWER_IDS = "answer_ids";
     public static final String ANSWER_TEXT = "answer_text";
     public static final String IS_CORRECT = "is_correct";
     public static final String IS_HANDWRITTEN = "is_handwritten";

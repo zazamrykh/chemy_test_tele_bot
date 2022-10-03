@@ -2,6 +2,7 @@ import java.util.HashMap;
 import java.util.List;
 
 public class Testing {
+    private int testingId;
     private final long studentId;
     private final String beginningDateTime;
     private String endDateTime;
@@ -82,5 +83,13 @@ public class Testing {
 
     public String getTopicName() {
         return topicName;
+    }
+
+    public int getTestingId() {
+        return testingId;
+    }
+
+    public void setTestingId(int testingId) {
+        this.testingId = testingId;
     }
 }

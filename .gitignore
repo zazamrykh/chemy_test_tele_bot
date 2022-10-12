@@ -1,5 +1,5 @@
 /.idea/
 /out/
 *.iml
-/src/DataBaseConfig.java
-/src/TelegramConfig.java
+/src/main/java/DataBaseConfig.java
+/src/main/java/TelegramConfig.java

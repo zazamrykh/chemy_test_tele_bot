@@ -1,0 +1,22 @@
+plugins {
+    id 'java'
+}
+
+group 'org.example'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+compileJava.options.encoding = 'UTF-8'
+compileTestJava.options.encoding = 'UTF-8'
+
+dependencies {
+    implementation 'org.telegram:telegrambots:6.1.0'
+    implementation 'mysql:mysql-connector-java:8.0.30'
+}
+
+test {
+    useJUnitPlatform()
+}
